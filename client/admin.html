@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Phantom Admin</title>
+  <meta name="theme-color" content="#07070a"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/admin.css"/>
+</head>
+<body>
+
+<!-- ADMIN LOGIN -->
+<div id="admin-login" class="screen active">
+  <div class="login-card">
+    <div class="admin-logo">⬡ ADMIN</div>
+    <p class="login-sub">Phantom Chat Control Panel</p>
+    <input id="admin-user" type="text" placeholder="Username" autocomplete="off" spellcheck="false"/>
+    <input id="admin-pass" type="password" placeholder="Password"/>
+    <button id="admin-login-btn">Authenticate</button>
+    <p id="admin-error" class="error-msg"></p>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="admin-panel" class="screen">
+  <nav class="admin-nav">
+    <div class="admin-brand">⬡ PHANTOM ADMIN</div>
+    <div class="admin-tabs">
+      <button class="tab active" data-tab="users">Users</button>
+      <button class="tab" data-tab="messages">Messages</button>
+      <button class="tab" data-tab="conversations">Conversations</button>
+    </div>
+    <button id="admin-logout">Logout</button>
+  </nav>
+
+  <div class="admin-body">
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat"><span id="stat-users">0</span><label>Users</label></div>
+      <div class="stat"><span id="stat-online">0</span><label>Online</label></div>
+      <div class="stat"><span id="stat-messages">0</span><label>Messages</label></div>
+      <div class="stat"><span id="stat-convos">0</span><label>Chats</label></div>
+    </div>
+
+    <!-- Users Tab -->
+    <div id="tab-users" class="tab-content active">
+      <div class="tab-header">
+        <h2>All Users</h2>
+        <button class="refresh-btn" onclick="loadUsers()">↻ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Username</th><th>Status</th><th>Last Seen</th><th>Joined</th></tr></thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Messages Tab -->
+    <div id="tab-messages" class="tab-content">
+      <div class="tab-header">
+        <h2>All Messages</h2>
+        <div class="tab-header-right">
+          <input id="msg-search" type="text" placeholder="Filter by user..." class="filter-input"/>
+          <button class="refresh-btn" onclick="loadMessages()">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>From</th><th>To</th><th>Message</th><th>Timer</th><th>Status</th><th>Time</th><th>Actions</th></tr></thead>
+          <tbody id="messages-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Conversations Tab -->
+    <div id="tab-conversations" class="tab-content">
+      <div class="tab-header">
+        <h2>Conversations</h2>
+        <button class="refresh-btn" onclick="loadConversations()">↻ Refresh</button>
+      </div>
+
+      <!-- Conversation viewer -->
+      <div id="convo-viewer" class="convo-viewer hidden">
+        <div class="convo-viewer-header">
+          <button id="convo-back-btn" class="back-link">← Back</button>
+          <span id="convo-viewer-title"></span>
+        </div>
+        <div id="convo-messages-list" class="convo-messages-list"></div>
+      </div>
+
+      <div id="convo-list-wrap">
+        <div class="table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Users</th><th>Messages</th><th>Last Activity</th><th>Actions</th></tr></thead>
+            <tbody id="convos-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="edit-modal" class="modal hidden">
+  <div class="modal-card">
+    <h3>Edit Message</h3>
+    <p class="modal-sub">Changes are broadcast in real-time to both users.</p>
+    <textarea id="edit-textarea" maxlength="500" rows="4" placeholder="New message text..."></textarea>
+    <div class="modal-actions">
+      <button id="edit-cancel">Cancel</button>
+      <button id="edit-save">Save &amp; Broadcast</button>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

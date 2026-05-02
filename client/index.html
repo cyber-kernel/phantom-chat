@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>Phantom Chat</title>
+
+  <!-- PWA -->
+  <meta name="theme-color" content="#0a0a0c"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Phantom"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="description" content="Self-destructing encrypted chat. Messages vanish after being read."/>
+  <link rel="manifest" href="/manifest.json"/>
+  <link rel="apple-touch-icon" href="/icons/icon-192.png"/>
+  <link rel="icon" type="image/png" href="/icons/icon-192.png"/>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+
+<!-- JOIN SCREEN -->
+<div id="join-screen" class="screen active">
+  <div class="join-card">
+    <div class="join-logo">
+      <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
+        <circle cx="24" cy="24" r="22" stroke="var(--accent)" stroke-width="2"/>
+        <path d="M14 20h20M14 24h14M14 28h8" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="36" cy="32" r="6" fill="var(--bg)" stroke="var(--danger)" stroke-width="1.5"/>
+        <path d="M34 32l1.5 1.5L38 30" stroke="var(--danger)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="join-logo-text">PHANTOM</span>
+    </div>
+    <p class="join-sub">Messages that vanish. No traces left.</p>
+    <div class="join-form">
+      <input id="username-input" type="text" placeholder="Choose a username" maxlength="30" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="none"/>
+      <button id="join-btn">Enter →</button>
+    </div>
+    <p id="join-error" class="error-msg"></p>
+    <p class="join-hint">No password. No email. No history.</p>
+  </div>
+</div>
+
+<!-- CHAT APP -->
+<div id="app" class="screen">
+
+  <!-- Mobile overlay for sidebar -->
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span class="brand-name">PHANTOM</span>
+      </div>
+      <div class="me-badge" id="me-badge">—</div>
+    </div>
+    <div class="search-wrap">
+      <input id="search-input" type="text" placeholder="Search users..." autocomplete="off"/>
+    </div>
+    <div class="users-label">USERS</div>
+    <ul id="users-list"></ul>
+    <div class="sidebar-footer">
+      <button id="logout-btn">← Leave</button>
+    </div>
+  </aside>
+
+  <!-- CHAT AREA -->
+  <main id="chat-area">
+    <div id="empty-state" class="empty-state">
+      <div class="empty-icon">👁</div>
+      <p>Select a user to chat</p>
+      <span>Messages can self-destruct after being read</span>
+    </div>
+
+    <div id="chat-view" class="chat-view hidden">
+      <div class="chat-header">
+        <button id="back-btn" class="back-btn" aria-label="Back">←</button>
+        <div class="chat-peer-info">
+          <div class="peer-dot" id="peer-dot"></div>
+          <span id="peer-name">—</span>
+        </div>
+        <div class="chat-header-actions">
+          <span id="peer-status" class="peer-status">online</span>
+          <button id="clear-chat-btn" class="clear-btn" title="Clear chat">🗑</button>
+        </div>
+      </div>
+
+      <div id="messages-container" class="messages-container"></div>
+
+      <div class="message-input-bar">
+        <div class="input-row">
+          <input id="msg-input" type="text" placeholder="Type a message..." maxlength="500" autocomplete="off"/>
+          <button id="send-btn">Send</button>
+        </div>
+        <div class="timer-row">
+          <span class="timer-label">⏱ Self-destruct:</span>
+          <div class="timer-options">
+            <label><input type="radio" name="timer" value="none" checked/><span>Off</span></label>
+            <label><input type="radio" name="timer" value="15"/><span>15s</span></label>
+            <label><input type="radio" name="timer" value="30"/><span>30s</span></label>
+            <label><input type="radio" name="timer" value="45"/><span>45s</span></label>
+            <label><input type="radio" name="timer" value="60"/><span>60s</span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Right-click context menu -->
+<div id="ctx-menu" class="ctx-menu hidden">
+  <div id="ctx-delete" class="ctx-item ctx-danger">🗑 Delete</div>
+  <div id="ctx-copy" class="ctx-item">📋 Copy</div>
+</div>
+
+<!-- Mobile menu toggle (hamburger) -->
+<button id="mobile-menu-btn" class="mobile-menu-btn hidden" aria-label="Open users list">☰</button>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>
