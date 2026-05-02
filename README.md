@@ -139,48 +139,6 @@ npm run dev
 
 ---
 
-## 🌐 Deployment
-
-### Option A: Railway (Easiest)
-
-1. Create account at https://railway.app
-2. Create new project → "Deploy from GitHub repo"
-3. Add MongoDB plugin in Railway dashboard
-4. Set environment variables:
-   - `MONGO_URI` = Railway MongoDB connection string
-   - `PORT` = 3000
-   - `ADMIN_KEY` = your-secret-key
-5. Set start command: `node index.js`
-6. Deploy root directory: `server/`
-
-### Option B: Render
-
-1. Create account at https://render.com
-2. New → Web Service → connect GitHub repo
-3. Build command: `cd server && npm install`
-4. Start command: `cd server && node index.js`
-5. Add environment variables in Render dashboard
-6. Use MongoDB Atlas for the database
-
-### Option C: VPS (DigitalOcean / AWS EC2)
-
-```bash
-# On your server:
-git clone <your-repo>
-cd phantom-chat/server
-npm install
-npm install -g pm2
-
-# Create .env with production values
-# Then start with PM2:
-pm2 start index.js --name phantom-chat
-pm2 startup
-pm2 save
-```
-
-Set up Nginx as a reverse proxy to port 3000.
-
----
 
 ## 🛡 Security Notes
 
