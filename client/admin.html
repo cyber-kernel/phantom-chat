@@ -1,122 +1,202 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Phantom Admin</title>
-  <meta name="theme-color" content="#07070a"/>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/admin.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/admin.css" />
 </head>
 <body>
 
-<!-- ADMIN LOGIN -->
-<div id="admin-login" class="screen active">
-  <div class="login-card">
-    <div class="admin-logo">⬡ ADMIN</div>
-    <p class="login-sub">Phantom Chat Control Panel</p>
-    <input id="admin-user" type="text" placeholder="Username" autocomplete="off" spellcheck="false"/>
-    <input id="admin-pass" type="password" placeholder="Password"/>
-    <button id="admin-login-btn">Authenticate</button>
-    <p id="admin-error" class="error-msg"></p>
+  <!-- ══════════════════════════════
+       LOGIN SCREEN
+  ══════════════════════════════ -->
+  <div id="screen-login" class="screen active">
+    <div class="login-page">
+      <div class="login-logo">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        Phantom Admin
+      </div>
+      <div class="login-sub">// restricted access</div>
+      <div class="login-card">
+        <div class="field">
+          <label>Username</label>
+          <input id="inp-admin-user" type="text" placeholder="admin username" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input id="inp-admin-pass" type="password" placeholder="••••••••" autocomplete="off" />
+        </div>
+        <div id="login-error" class="err-msg"></div>
+        <button id="btn-admin-login" class="btn-primary">Authenticate</button>
+      </div>
+    </div>
   </div>
-</div>
 
-<!-- ADMIN PANEL -->
-<div id="admin-panel" class="screen">
-  <nav class="admin-nav">
-    <div class="admin-brand">⬡ PHANTOM ADMIN</div>
-    <div class="admin-tabs">
-      <button class="tab active" data-tab="users">Users</button>
-      <button class="tab" data-tab="messages">Messages</button>
-      <button class="tab" data-tab="conversations">Conversations</button>
-    </div>
-    <button id="admin-logout">Logout</button>
-  </nav>
+  <!-- ══════════════════════════════
+       ADMIN PANEL SCREEN
+  ══════════════════════════════ -->
+  <div id="screen-panel" class="screen">
 
-  <div class="admin-body">
-    <!-- Stats -->
-    <div class="stats-bar">
-      <div class="stat"><span id="stat-users">0</span><label>Users</label></div>
-      <div class="stat"><span id="stat-online">0</span><label>Online</label></div>
-      <div class="stat"><span id="stat-messages">0</span><label>Messages</label></div>
-      <div class="stat"><span id="stat-convos">0</span><label>Chats</label></div>
-    </div>
-
-    <!-- Users Tab -->
-    <div id="tab-users" class="tab-content active">
-      <div class="tab-header">
-        <h2>All Users</h2>
-        <button class="refresh-btn" onclick="loadUsers()">↻ Refresh</button>
+    <!-- Nav -->
+    <nav class="a-nav">
+      <div class="a-nav-brand">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        Phantom Admin
       </div>
-      <div class="table-wrap">
-        <table class="admin-table">
-          <thead><tr><th>Username</th><th>Status</th><th>Last Seen</th><th>Joined</th></tr></thead>
-          <tbody id="users-tbody"></tbody>
-        </table>
+      <div class="a-tabs">
+        <button class="a-tab active" data-tab="overview">Overview</button>
+        <button class="a-tab" data-tab="users">Users</button>
+        <button class="a-tab" data-tab="messages">Messages</button>
+        <button class="a-tab" data-tab="conversations">Conversations</button>
       </div>
-    </div>
+      <button id="btn-logout" class="a-logout">Logout</button>
+    </nav>
 
-    <!-- Messages Tab -->
-    <div id="tab-messages" class="tab-content">
-      <div class="tab-header">
-        <h2>All Messages</h2>
-        <div class="tab-header-right">
-          <input id="msg-search" type="text" placeholder="Filter by user..." class="filter-input"/>
-          <button class="refresh-btn" onclick="loadMessages()">↻ Refresh</button>
+    <!-- Body -->
+    <div class="a-body">
+
+      <!-- Stats row (always visible) -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div id="stat-users" class="stat-n accent">—</div>
+          <div class="stat-l">Total Users</div>
+        </div>
+        <div class="stat-card">
+          <div id="stat-online" class="stat-n">—</div>
+          <div class="stat-l">Online Now</div>
+        </div>
+        <div class="stat-card">
+          <div id="stat-messages" class="stat-n">—</div>
+          <div class="stat-l">Messages</div>
+        </div>
+        <div class="stat-card">
+          <div id="stat-convos" class="stat-n">—</div>
+          <div class="stat-l">Conversations</div>
         </div>
       </div>
-      <div class="table-wrap">
-        <table class="admin-table">
-          <thead><tr><th>From</th><th>To</th><th>Message</th><th>Timer</th><th>Status</th><th>Time</th><th>Actions</th></tr></thead>
-          <tbody id="messages-tbody"></tbody>
-        </table>
-      </div>
-    </div>
 
-    <!-- Conversations Tab -->
-    <div id="tab-conversations" class="tab-content">
-      <div class="tab-header">
-        <h2>Conversations</h2>
-        <button class="refresh-btn" onclick="loadConversations()">↻ Refresh</button>
+      <!-- ── TAB: OVERVIEW ── -->
+      <div id="tab-overview" class="a-tab-panel">
+        <div class="panel-top"><h2>Overview</h2></div>
+        <p style="color:var(--t2);font-size:13px">Welcome back. Use the tabs above to manage users, messages, and conversations in real time.</p>
       </div>
 
-      <!-- Conversation viewer -->
-      <div id="convo-viewer" class="convo-viewer hidden">
-        <div class="convo-viewer-header">
-          <button id="convo-back-btn" class="back-link">← Back</button>
-          <span id="convo-viewer-title"></span>
+      <!-- ── TAB: USERS ── -->
+      <div id="tab-users" class="a-tab-panel hidden">
+        <div class="panel-top">
+          <h2>Users</h2>
+          <div class="panel-top-right">
+            <button class="btn-refresh" onclick="loadUsers()">↻ Refresh</button>
+          </div>
         </div>
-        <div id="convo-messages-list" class="convo-messages-list"></div>
-      </div>
-
-      <div id="convo-list-wrap">
-        <div class="table-wrap">
-          <table class="admin-table">
-            <thead><tr><th>Users</th><th>Messages</th><th>Last Activity</th><th>Actions</th></tr></thead>
-            <tbody id="convos-tbody"></tbody>
+        <div class="tbl-wrap">
+          <table class="a-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Status</th>
+                <th>Last Seen</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody">
+              <tr><td colspan="4" class="td-empty">Loading…</td></tr>
+            </tbody>
           </table>
         </div>
       </div>
+
+      <!-- ── TAB: MESSAGES ── -->
+      <div id="tab-messages" class="a-tab-panel hidden">
+        <div class="panel-top">
+          <h2>Messages</h2>
+          <div class="panel-top-right">
+            <input id="msg-search" class="filter-inp" placeholder="Search messages…" />
+            <button class="btn-refresh" onclick="loadMessages()">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="a-table">
+            <thead>
+              <tr>
+                <th>From</th>
+                <th>To</th>
+                <th>Message</th>
+                <th>Timer</th>
+                <th>Status</th>
+                <th>Sent</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="messages-tbody">
+              <tr><td colspan="7" class="td-empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── TAB: CONVERSATIONS ── -->
+      <div id="tab-conversations" class="a-tab-panel hidden">
+        <div class="panel-top">
+          <h2>Conversations</h2>
+          <div class="panel-top-right">
+            <button class="btn-refresh" onclick="loadConversations()">↻ Refresh</button>
+          </div>
+        </div>
+
+        <!-- List -->
+        <div id="convo-list-wrap">
+          <div class="tbl-wrap">
+            <table class="a-table">
+              <thead>
+                <tr>
+                  <th>Participants</th>
+                  <th>Messages</th>
+                  <th>Last Activity</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="convos-tbody">
+                <tr><td colspan="4" class="td-empty">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Conversation viewer (inline) -->
+        <div id="convo-viewer" class="chat-viewer hidden">
+          <div class="cv-head">
+            <button id="convo-back-btn" class="btn-cv-back">← Back</button>
+            <span id="convo-viewer-title" class="cv-title"></span>
+          </div>
+          <div id="convo-messages-list" class="cv-msgs"></div>
+        </div>
+
+      </div>
+    </div><!-- /a-body -->
+  </div><!-- /screen-panel -->
+
+  <!-- ── EDIT MODAL ── -->
+  <div id="edit-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <h3>Edit Message</h3>
+      <span class="modal-sub">Changes are applied in real-time to both users.</span>
+      <textarea id="edit-textarea" rows="4" maxlength="500" placeholder="New message text…"></textarea>
+      <div class="modal-btns">
+        <button id="edit-cancel" class="btn-ghost">Cancel</button>
+        <button id="edit-save" class="btn-primary" style="width:auto;padding:10px 22px">Save</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- Edit Modal -->
-<div id="edit-modal" class="modal hidden">
-  <div class="modal-card">
-    <h3>Edit Message</h3>
-    <p class="modal-sub">Changes are broadcast in real-time to both users.</p>
-    <textarea id="edit-textarea" maxlength="500" rows="4" placeholder="New message text..."></textarea>
-    <div class="modal-actions">
-      <button id="edit-cancel">Cancel</button>
-      <button id="edit-save">Save &amp; Broadcast</button>
-    </div>
-  </div>
-</div>
-
-<script src="/socket.io/socket.io.js"></script>
-<script src="/js/admin.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/admin.js"></script>
 </body>
 </html>

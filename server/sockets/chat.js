@@ -1,5 +1,5 @@
-const xss     = require('xss');
-const User    = require('../models/User');
+const xss = require('xss');
+const User = require('../models/User');
 const Message = require('../models/Message');
 
 const destroyTimers = new Map(); // msgId -> timeoutId
@@ -27,7 +27,7 @@ module.exports = (io) => {
           { new: true }
         );
 
-        socket.data.username  = username;
+        socket.data.username = username;
         socket.data.secretKey = secretKey;
         socket.join(`user:${username}`);
 
@@ -86,20 +86,28 @@ module.exports = (io) => {
         if (!msg || msg.seen || msg.receiver !== viewer) return;
 
         if (!msg.timer) {
+          // ── Non-timed message: just mark seen, notify sender with ✓✓ ──
           await Message.findByIdAndUpdate(messageId, { seen: true, seenAt: new Date() });
+
+          // Only sender needs seenAck (to show ✓✓ on their bubble)
           io.to(`user:${msg.sender}`).emit('message:seenAck', { messageId });
-          io.to(`user:${msg.receiver}`).emit('message:seenAck', { messageId });
           return;
         }
 
+        // ── Timed message: start countdown AND notify sender with ✓✓ ──
         const deleteAt = new Date(Date.now() + msg.timer * 1000);
         await Message.findByIdAndUpdate(messageId, {
           seen: true, seenAt: new Date(), deleteAt
         });
 
-        const payload = { messageId, deleteAt: deleteAt.toISOString(), timer: msg.timer };
-        io.to(`user:${msg.sender}`).emit('message:countdown', payload);
-        io.to(`user:${msg.receiver}`).emit('message:countdown', payload);
+        // Tell sender their message was seen (✓✓)
+        io.to(`user:${msg.sender}`).emit('message:seenAck', { messageId });
+
+        // Tell both sides to start the countdown timer UI
+        const countdownPayload = { messageId, deleteAt: deleteAt.toISOString(), timer: msg.timer };
+        io.to(`user:${msg.sender}`).emit('message:countdown', countdownPayload);
+        io.to(`user:${msg.receiver}`).emit('message:countdown', countdownPayload);
+
         scheduleDestroy(messageId, msg.timer * 1000, msg.sender, msg.receiver);
 
       } catch (e) { console.error('message:seen:', e.message); }
@@ -213,7 +221,7 @@ module.exports = (io) => {
       try {
         await Message.findByIdAndDelete(messageId);
         destroyTimers.delete(messageId);
-        if (sender)   io.to(`user:${sender}`).emit('message:destroyed', { messageId });
+        if (sender) io.to(`user:${sender}`).emit('message:destroyed', { messageId });
         if (receiver) io.to(`user:${receiver}`).emit('message:destroyed', { messageId });
       } catch (e) { console.error('scheduleDestroy:', e.message); }
     }, delayMs);
@@ -229,14 +237,14 @@ module.exports = (io) => {
 
   function toPayload(msg) {
     return {
-      _id:       msg._id.toString(),
-      sender:    msg.sender,
-      receiver:  msg.receiver,
-      message:   msg.message,
-      timer:     msg.timer,
-      seen:      msg.seen,
-      edited:    msg.edited,
-      deleteAt:  msg.deleteAt ? msg.deleteAt.toISOString() : null,
+      _id: msg._id.toString(),
+      sender: msg.sender,
+      receiver: msg.receiver,
+      message: msg.message,
+      timer: msg.timer,
+      seen: msg.seen,
+      edited: msg.edited,
+      deleteAt: msg.deleteAt ? msg.deleteAt.toISOString() : null,
       createdAt: msg.createdAt
     };
   }
