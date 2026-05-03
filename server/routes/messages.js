@@ -1,41 +1,69 @@
 const express = require('express');
-const router = express.Router();
+const router  = express.Router();
 const Message = require('../models/Message');
+const User    = require('../models/User');
 
+function adminCheck(req, res) {
+  const key = req.query.adminKey || (req.body && req.body.adminKey);
+  if (key !== process.env.ADMIN_KEY) {
+    res.status(403).json({ error: 'Forbidden' });
+    return false;
+  }
+  return true;
+}
+
+// Admin login
+router.post('/admin/login', (req, res) => {
+  const { username, password } = req.body;
+  if (username === process.env.ADMIN_USERNAME &&
+      password === process.env.ADMIN_PASSWORD) {
+    return res.json({ success: true, adminKey: process.env.ADMIN_KEY });
+  }
+  res.status(401).json({ error: 'Invalid credentials' });
+});
 
 // Get conversation between two users
-router.get('/conversation/:user1/:user2', async (req, res) => {
+router.get('/conversation/:a/:b', async (req, res) => {
   try {
-    const { user1, user2 } = req.params;
-    const messages = await Message.find({
+    const { a, b } = req.params;
+    const msgs = await Message.find({
       $or: [
-        { sender: user1, receiver: user2 },
-        { sender: user2, receiver: user1 }
+        { sender: a, receiver: b },
+        { sender: b, receiver: a }
       ]
     }).sort({ createdAt: 1 });
-    res.json(messages);
-  } catch (err) {
+    res.json(msgs);
+  } catch {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Admin: Get all messages
+// Admin: all messages
 router.get('/admin/all', async (req, res) => {
+  if (!adminCheck(req, res)) return;
   try {
-    const { adminKey } = req.query;
-    if (adminKey !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Forbidden' });
-    const messages = await Message.find({}).sort({ createdAt: -1 }).limit(500);
-    res.json(messages);
-  } catch (err) {
+    const msgs = await Message.find({}).sort({ createdAt: -1 }).limit(1000);
+    res.json(msgs);
+  } catch {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Admin: Get all conversations summary
-router.get('/admin/conversations', async (req, res) => {
+// Admin: all users
+router.get('/admin/users', async (req, res) => {
+  if (!adminCheck(req, res)) return;
   try {
-    const { adminKey } = req.query;
-    if (adminKey !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Forbidden' });
+    const users = await User.find({}, '-secretKey').sort({ online: -1, createdAt: -1 });
+    res.json(users);
+  } catch {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Admin: conversations summary
+router.get('/admin/conversations', async (req, res) => {
+  if (!adminCheck(req, res)) return;
+  try {
     const convos = await Message.aggregate([
       {
         $group: {
@@ -46,89 +74,58 @@ router.get('/admin/conversations', async (req, res) => {
               { a: '$receiver', b: '$sender' }
             ]
           },
-          count: { $sum: 1 },
+          count:       { $sum: 1 },
           lastMessage: { $max: '$createdAt' }
         }
       },
       { $sort: { lastMessage: -1 } }
     ]);
     res.json(convos);
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Admin: Delete message
-router.delete('/admin/:id', async (req, res) => {
-  try {
-    const { adminKey } = req.query;
-    if (adminKey !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Forbidden' });
-    await Message.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Admin: Delete conversation
-router.delete('/admin/conversation/:user1/:user2', async (req, res) => {
-  try {
-    const { adminKey } = req.query;
-    if (adminKey !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Forbidden' });
-    const { user1, user2 } = req.params;
-    await Message.deleteMany({
-      $or: [
-        { sender: user1, receiver: user2 },
-        { sender: user2, receiver: user1 }
-      ]
-    });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Admin: Edit message
+// Admin: edit message
 router.put('/admin/:id', async (req, res) => {
+  if (!adminCheck(req, res)) return;
   try {
-    const { adminKey } = req.query;
-    if (adminKey !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Forbidden' });
     const { message } = req.body;
-    if (!message || message.trim().length === 0) return res.status(400).json({ error: 'Empty message' });
+    if (!message || !message.trim()) return res.status(400).json({ error: 'Empty message' });
     const updated = await Message.findByIdAndUpdate(
       req.params.id,
-      { message: message.trim().substring(0, 500), edited: true },
+      { message: message.trim().slice(0, 500), edited: true },
       { new: true }
     );
+    if (!updated) return res.status(404).json({ error: 'Not found' });
     res.json(updated);
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Admin: Get all users
-router.get('/admin/users', async (req, res) => {
+// Admin: delete message
+router.delete('/admin/msg/:id', async (req, res) => {
+  if (!adminCheck(req, res)) return;
   try {
-    const { adminKey } = req.query;
-    if (adminKey !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Forbidden' });
-    const User = require('../models/User');
-    const users = await User.find({}).sort({ online: -1, createdAt: -1 });
-    res.json(users);
-  } catch (err) {
+    await Message.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Admin login verification
-router.post('/admin/login', (req, res) => {
-  const { username, password } = req.body;
-  if (
-    username === process.env.ADMIN_USERNAME &&
-    password === process.env.ADMIN_PASSWORD
-  ) {
-    res.json({ success: true, adminKey: process.env.ADMIN_KEY });
-  } else {
-    res.status(401).json({ error: 'Invalid credentials' });
+// Admin: delete conversation
+router.delete('/admin/conversation/:a/:b', async (req, res) => {
+  if (!adminCheck(req, res)) return;
+  try {
+    const { a, b } = req.params;
+    await Message.deleteMany({
+      $or: [{ sender: a, receiver: b }, { sender: b, receiver: a }]
+    });
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

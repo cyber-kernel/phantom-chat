@@ -8,6 +8,10 @@ const userSchema = new mongoose.Schema({
     trim: true,
     maxlength: 30
   },
+  secretKey: {
+    type: String,
+    required: true
+  },
   online: {
     type: Boolean,
     default: false

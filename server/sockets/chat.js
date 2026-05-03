@@ -1,64 +1,89 @@
-const xss = require('xss');
-const User = require('../models/User');
+const xss     = require('xss');
+const User    = require('../models/User');
 const Message = require('../models/Message');
 
-const destroyTimers = new Map();
+const destroyTimers = new Map(); // msgId -> timeoutId
 
 module.exports = (io) => {
-  io.on('connection', async (socket) => {
-    console.log('Socket connected:', socket.id);
 
-    socket.on('user:join', async ({ username }) => {
+  io.on('connection', (socket) => {
+
+    // ── JOIN ──
+    socket.on('user:join', async ({ username, secretKey }) => {
       try {
+        if (!username) return;
+
+        if (username !== '__admin__') {
+          const user = await User.findOne({ username });
+          if (!user || user.secretKey !== secretKey) {
+            socket.emit('auth:error', { error: 'Authentication failed' });
+            return;
+          }
+        }
+
         await User.findOneAndUpdate(
           { username },
           { online: true, socketId: socket.id, lastSeen: new Date() },
-          { upsert: true, new: true }
+          { new: true }
         );
-        socket.data.username = username;
+
+        socket.data.username  = username;
+        socket.data.secretKey = secretKey;
         socket.join(`user:${username}`);
 
-        const pendingDestroy = await Message.find({
-          $or: [{ sender: username }, { receiver: username }],
-          seen: true,
-          deleteAt: { $ne: null }
-        });
-        for (const msg of pendingDestroy) {
-          const timeLeft = new Date(msg.deleteAt).getTime() - Date.now();
-          if (timeLeft <= 0) {
-            await Message.findByIdAndDelete(msg._id);
-            io.emit('message:destroyed', { messageId: msg._id.toString() });
-          } else {
-            scheduleDestroy(io, msg._id.toString(), timeLeft, msg.sender, msg.receiver);
+        // Resume any pending self-destruct timers
+        if (username !== '__admin__') {
+          const pending = await Message.find({
+            $or: [{ sender: username }, { receiver: username }],
+            seen: true,
+            deleteAt: { $ne: null }
+          });
+
+          for (const msg of pending) {
+            const left = new Date(msg.deleteAt).getTime() - Date.now();
+            if (left <= 0) {
+              await Message.findByIdAndDelete(msg._id);
+              io.emit('message:destroyed', { messageId: msg._id.toString() });
+            } else {
+              scheduleDestroy(msg._id.toString(), left, msg.sender, msg.receiver);
+            }
           }
         }
+
         io.emit('user:online', { username, online: true });
-        console.log('joined:', username);
-      } catch (e) { console.error('Join error:', e); }
+
+      } catch (e) { console.error('user:join:', e.message); }
     });
 
+    // ── SEND MESSAGE ──
     socket.on('message:send', async ({ sender, receiver, message, timer }) => {
       try {
         if (!sender || !receiver || !message) return;
-        const clean = xss(message.trim()).substring(0, 500);
+        if (socket.data.username !== sender) return;
+
+        const clean = xss(String(message).trim()).slice(0, 500);
         if (!clean) return;
-        const timerVal = (timer === null || timer === undefined || timer === 'null') ? null : Number(timer);
+
+        const timerVal = (timer == null || timer === 'none' || timer === 'null' || timer === '')
+          ? null : Number(timer);
         if (timerVal !== null && ![15, 30, 45, 60].includes(timerVal)) return;
 
-        const msg = new Message({ sender, receiver, message: clean, timer: timerVal, seen: false, edited: false });
+        const msg = new Message({ sender, receiver, message: clean, timer: timerVal });
         await msg.save();
 
         const payload = toPayload(msg);
         io.to(`user:${sender}`).emit('message:new', payload);
         io.to(`user:${receiver}`).emit('message:new', payload);
-      } catch (e) { console.error('Send error:', e); }
+
+      } catch (e) { console.error('message:send:', e.message); }
     });
 
+    // ── MARK SEEN ──
     socket.on('message:seen', async ({ messageId, viewer }) => {
       try {
+        if (socket.data.username !== viewer) return;
         const msg = await Message.findById(messageId);
-        if (!msg || msg.seen) return;
-        if (msg.receiver !== viewer) return;
+        if (!msg || msg.seen || msg.receiver !== viewer) return;
 
         if (!msg.timer) {
           await Message.findByIdAndUpdate(messageId, { seen: true, seenAt: new Date() });
@@ -68,39 +93,42 @@ module.exports = (io) => {
         }
 
         const deleteAt = new Date(Date.now() + msg.timer * 1000);
-        await Message.findByIdAndUpdate(messageId, { seen: true, seenAt: new Date(), deleteAt });
+        await Message.findByIdAndUpdate(messageId, {
+          seen: true, seenAt: new Date(), deleteAt
+        });
+
         const payload = { messageId, deleteAt: deleteAt.toISOString(), timer: msg.timer };
         io.to(`user:${msg.sender}`).emit('message:countdown', payload);
         io.to(`user:${msg.receiver}`).emit('message:countdown', payload);
-        scheduleDestroy(io, messageId, msg.timer * 1000, msg.sender, msg.receiver);
-      } catch (e) { console.error('Seen error:', e); }
+        scheduleDestroy(messageId, msg.timer * 1000, msg.sender, msg.receiver);
+
+      } catch (e) { console.error('message:seen:', e.message); }
     });
 
+    // ── DELETE OWN MESSAGE ──
     socket.on('message:delete', async ({ messageId, requester }) => {
       try {
+        if (socket.data.username !== requester) return;
         const msg = await Message.findById(messageId);
-        if (!msg) return;
-        if (msg.sender !== requester) return;
+        if (!msg || msg.sender !== requester) return;
         await Message.findByIdAndDelete(messageId);
         cancelTimer(messageId);
         io.to(`user:${msg.sender}`).emit('message:destroyed', { messageId });
         io.to(`user:${msg.receiver}`).emit('message:destroyed', { messageId });
-      } catch (e) { console.error('User delete error:', e); }
+      } catch (e) { console.error('message:delete:', e.message); }
     });
 
+    // ── CLEAR CHAT ──
     socket.on('chat:clear', async ({ requester, peer }) => {
       try {
+        if (socket.data.username !== requester) return;
         const msgs = await Message.find({
           $or: [
             { sender: requester, receiver: peer },
             { sender: peer, receiver: requester }
           ]
         });
-        for (const m of msgs) {
-          cancelTimer(m._id.toString());
-          io.to(`user:${requester}`).emit('message:destroyed', { messageId: m._id.toString() });
-          io.to(`user:${peer}`).emit('message:destroyed', { messageId: m._id.toString() });
-        }
+        for (const m of msgs) cancelTimer(m._id.toString());
         await Message.deleteMany({
           $or: [
             { sender: requester, receiver: peer },
@@ -109,20 +137,30 @@ module.exports = (io) => {
         });
         io.to(`user:${requester}`).emit('chat:cleared', { peer });
         io.to(`user:${peer}`).emit('chat:cleared', { peer: requester });
-      } catch (e) { console.error('Clear chat error:', e); }
+      } catch (e) { console.error('chat:clear:', e.message); }
     });
 
+    // ── TYPING ──
+    socket.on('user:typing', ({ sender, receiver, isTyping }) => {
+      if (socket.data.username !== sender) return;
+      io.to(`user:${receiver}`).emit('user:typing', { sender, isTyping });
+    });
+
+    // ── ADMIN: EDIT ──
     socket.on('admin:edit', async ({ messageId, newMessage, adminKey }) => {
       try {
         if (adminKey !== process.env.ADMIN_KEY) return;
-        const clean = xss(newMessage.trim()).substring(0, 500);
+        const clean = xss(String(newMessage || '').trim()).slice(0, 500);
         if (!clean) return;
-        const updated = await Message.findByIdAndUpdate(messageId, { message: clean, edited: true }, { new: true });
+        const updated = await Message.findByIdAndUpdate(
+          messageId, { message: clean, edited: true }, { new: true }
+        );
         if (!updated) return;
-        io.emit('message:edited', { messageId, message: updated.message, edited: true });
-      } catch (e) { console.error('Admin edit error:', e); }
+        io.emit('message:edited', { messageId, message: updated.message });
+      } catch (e) { console.error('admin:edit:', e.message); }
     });
 
+    // ── ADMIN: DELETE MESSAGE ──
     socket.on('admin:delete', async ({ messageId, adminKey }) => {
       try {
         if (adminKey !== process.env.ADMIN_KEY) return;
@@ -131,10 +169,10 @@ module.exports = (io) => {
         cancelTimer(messageId);
         io.to(`user:${msg.sender}`).emit('message:destroyed', { messageId });
         io.to(`user:${msg.receiver}`).emit('message:destroyed', { messageId });
-        io.emit('message:destroyed', { messageId });
-      } catch (e) { console.error('Admin delete error:', e); }
+      } catch (e) { console.error('admin:delete:', e.message); }
     });
 
+    // ── ADMIN: DELETE CONVERSATION ──
     socket.on('admin:deleteConversation', async ({ user1, user2, adminKey }) => {
       try {
         if (adminKey !== process.env.ADMIN_KEY) return;
@@ -143,38 +181,43 @@ module.exports = (io) => {
         });
         for (const m of msgs) {
           cancelTimer(m._id.toString());
-          io.emit('message:destroyed', { messageId: m._id.toString() });
+          io.to(`user:${m.sender}`).emit('message:destroyed', { messageId: m._id.toString() });
+          io.to(`user:${m.receiver}`).emit('message:destroyed', { messageId: m._id.toString() });
         }
         await Message.deleteMany({
           $or: [{ sender: user1, receiver: user2 }, { sender: user2, receiver: user1 }]
         });
         io.emit('conversation:deleted', { user1, user2 });
-      } catch (e) { console.error('Admin delete convo error:', e); }
+      } catch (e) { console.error('admin:deleteConversation:', e.message); }
     });
 
+    // ── DISCONNECT ──
     socket.on('disconnect', async () => {
       try {
-        const username = socket.data.username;
-        if (!username) return;
-        await User.findOneAndUpdate({ username }, { online: false, lastSeen: new Date(), socketId: null });
+        const { username } = socket.data;
+        if (!username || username === '__admin__') return;
+        await User.findOneAndUpdate(
+          { username },
+          { online: false, lastSeen: new Date(), socketId: null }
+        );
         io.emit('user:online', { username, online: false });
-        console.log('disconnected:', username);
-      } catch (e) { console.error('Disconnect error:', e); }
+      } catch (e) { console.error('disconnect:', e.message); }
     });
-  });
 
-  function scheduleDestroy(io, messageId, delayMs, sender, receiver) {
+  }); // end io.on connection
+
+  // ── HELPERS ──
+  function scheduleDestroy(messageId, delayMs, sender, receiver) {
     if (destroyTimers.has(messageId)) return;
-    const timerId = setTimeout(async () => {
+    const t = setTimeout(async () => {
       try {
         await Message.findByIdAndDelete(messageId);
         destroyTimers.delete(messageId);
-        if (sender) io.to(`user:${sender}`).emit('message:destroyed', { messageId });
+        if (sender)   io.to(`user:${sender}`).emit('message:destroyed', { messageId });
         if (receiver) io.to(`user:${receiver}`).emit('message:destroyed', { messageId });
-        io.emit('message:destroyed', { messageId });
-      } catch (e) { console.error('Destroy timer error:', e); }
+      } catch (e) { console.error('scheduleDestroy:', e.message); }
     }, delayMs);
-    destroyTimers.set(messageId, timerId);
+    destroyTimers.set(messageId, t);
   }
 
   function cancelTimer(messageId) {
@@ -186,14 +229,14 @@ module.exports = (io) => {
 
   function toPayload(msg) {
     return {
-      _id: msg._id.toString(),
-      sender: msg.sender,
-      receiver: msg.receiver,
-      message: msg.message,
-      timer: msg.timer,
-      seen: msg.seen,
-      edited: msg.edited,
-      deleteAt: msg.deleteAt ? msg.deleteAt.toISOString() : null,
+      _id:       msg._id.toString(),
+      sender:    msg.sender,
+      receiver:  msg.receiver,
+      message:   msg.message,
+      timer:     msg.timer,
+      seen:      msg.seen,
+      edited:    msg.edited,
+      deleteAt:  msg.deleteAt ? msg.deleteAt.toISOString() : null,
       createdAt: msg.createdAt
     };
   }

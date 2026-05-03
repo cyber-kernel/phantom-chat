@@ -1,7 +1,6 @@
 {
-  "name": "phantom-chat-server",
-  "version": "1.0.0",
-  "description": "Self-destructing chat backend",
+  "name": "phantom-chat",
+  "version": "3.0.0",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
